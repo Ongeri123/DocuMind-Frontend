@@ -131,3 +131,12 @@ export const deleteDocument = async (documentId) => {
   })
   return response.json()
 }
+
+export const deleteSession = async (sessionId) => {
+  const headers = await getHeaders()
+  const response = await fetch(`${BASE_URL}/sessions/${sessionId}`, {
+    method: 'DELETE',
+    headers
+  })
+  return response.json()
+}

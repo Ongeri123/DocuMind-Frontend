@@ -7,7 +7,8 @@ import {
   getDocuments,
   toggleStar,
   getSessions,
-  deleteDocument 
+  deleteDocument,
+  deleteSession
 } from '../api/documind'
 
 export default function HomePage() {
@@ -112,6 +113,14 @@ export default function HomePage() {
 
   await deleteDocument(doc.id)
   removeDocument(doc.id)
+  }
+
+  const handleDeleteSession = async (e, sessionId) => {
+  e.stopPropagation()
+  if (!confirm('Delete this chat history? This cannot be undone.')) return
+
+  await deleteSession(sessionId)
+  setSessions(prev => prev.filter(s => s.id !== sessionId))
   }
 
   return (
@@ -220,6 +229,12 @@ export default function HomePage() {
                         {new Date(session.created_at).toLocaleDateString()}
                       </p>
                     </div>
+                     <button
+                      onClick={(e) => handleDeleteSession(e, session.id)}
+                      className="text-muted hover:text-coral transition-colors text-sm opacity-0 group-hover:opacity-100"
+                    >
+                      🗑
+                    </button>
                     <span className="text-xs text-accent font-mono opacity-0 group-hover:opacity-100 transition-opacity">
                       Resume →
                     </span>
