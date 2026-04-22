@@ -6,7 +6,8 @@ import {
   uploadDocument,
   getDocuments,
   toggleStar,
-  getSessions
+  getSessions,
+  deleteDocument 
 } from '../api/documind'
 
 export default function HomePage() {
@@ -18,7 +19,8 @@ export default function HomePage() {
     addDocument,
     setActiveDocument,
     toggleStarred,
-    setActiveSessionId
+    setActiveSessionId,
+    removeDocument
   } = useDocuMind()
 
   const [uploading, setUploading] = useState(false)
@@ -92,12 +94,25 @@ export default function HomePage() {
         >
           {doc.starred ? '⭐' : '☆'}
         </button>
+        <button
+        onClick={(e) => handleDelete(e, doc)}
+        className="text-muted  hover:text-coral transition-colors text-sm  group-hover:opacity-100"
+      >
+        🗑
+      </button>
         <span className="text-xs text-accent font-mono opacity-0 group-hover:opacity-100 transition-opacity">
           Chat →
         </span>
       </div>
     </div>
   )
+  const handleDelete = async (e, doc) => {
+  e.stopPropagation()
+  if (!confirm(`Delete "${doc.filename}"? This cannot be undone.`)) return
+
+  await deleteDocument(doc.id)
+  removeDocument(doc.id)
+  }
 
   return (
     <Layout>
