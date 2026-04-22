@@ -122,3 +122,12 @@ export const getSessions = async () => {
   })
   return response.json()
 }
+
+export const deleteDocument = async (documentId) => {
+  const headers = await getHeaders()
+  const response = await fetch(`${BASE_URL}/documents/${documentId}`, {
+    method: 'DELETE',
+    headers
+  })
+  return response.json()
+}
