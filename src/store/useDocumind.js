@@ -11,6 +11,10 @@ const useDocuMind = create((set) => ({
     documents: [doc, ...state.documents],
   })),
 
+  removeDocument: (documentId) => set((state) => ({
+  documents: state.documents.filter(d => d.id !== documentId)
+  })),
+
   setActiveDocument: (doc) => set({ activeDocument: doc }),
 
   setActivePage: (page) => set({ activePage: page }),
