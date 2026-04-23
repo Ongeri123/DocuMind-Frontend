@@ -52,7 +52,7 @@ useEffect(() => {
   }
 
   initSession()
-}, [activeDocument])
+}, [activeDocument, activeSessionId, setActiveSessionId])
 
   const handleSend = () => {
     if (!question.trim() || !activeDocument || !sessionId || isStreaming) return

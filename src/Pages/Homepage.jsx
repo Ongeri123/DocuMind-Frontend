@@ -37,7 +37,7 @@ export default function HomePage() {
       if (s.sessions) setSessions(s.sessions)
     }
     load()
-  }, [])
+  }, [setDocuments, setSessions])
 
   const handleUpload = async (e) => {
     const file = e.target.files[0]
@@ -58,10 +58,15 @@ export default function HomePage() {
         filename: file.name,
         starred: false
       })
-      setStatus('Ready ✓')
-    } catch {
-      setStatus('Upload failed')
-    } finally {
+      if (result.pii_detected && Object.keys(result.pii_detected).length > 0) {
+        const types = Object.keys(result.pii_detected).join(', ')
+        setStatus(`Ready ✓ — PII detected and will be masked: ${types}`)
+      } else {
+        setStatus('Ready ✓')
+      }
+      setUploading(false)
+    } catch (error) {
+      setStatus(error.message || 'Upload failed')
       setUploading(false)
     }
   }
@@ -77,6 +82,20 @@ export default function HomePage() {
     await toggleStar(doc.id, !doc.starred)
   }
 
+  const handleDelete = async (e, doc) => {
+    e.stopPropagation()
+    if (!confirm(`Delete "${doc.filename}"? This cannot be undone.`)) return
+    await deleteDocument(doc.id)
+    removeDocument(doc.id)
+  }
+
+  const handleDeleteSession = async (e, sessionId) => {
+    e.stopPropagation()
+    if (!confirm('Delete this chat history? This cannot be undone.')) return
+    await deleteSession(sessionId)
+    setSessions(prev => prev.filter(s => s.id !== sessionId))
+  }
+
   const DocumentCard = ({ doc }) => (
     <div
       onClick={() => openDocument(doc)}
@@ -89,39 +108,22 @@ export default function HomePage() {
       <div className="flex items-center gap-3">
         <button
           onClick={(e) => handleStar(e, doc)}
-          className={`text-sm transition-colors ${
-            doc.starred ? 'text-amber' : 'text-muted hover:text-amber'
-          }`}
+          className={`text-sm transition-colors ${doc.starred ? 'text-amber' : 'text-muted hover:text-amber'}`}
         >
           {doc.starred ? '⭐' : '☆'}
         </button>
         <button
-        onClick={(e) => handleDelete(e, doc)}
-        className="text-muted  hover:text-coral transition-colors text-sm  group-hover:opacity-100"
-      >
-        🗑
-      </button>
+          onClick={(e) => handleDelete(e, doc)}
+          className="text-muted hover:text-coral transition-colors text-sm group-hover:opacity-100"
+        >
+          🗑
+        </button>
         <span className="text-xs text-accent font-mono opacity-0 group-hover:opacity-100 transition-opacity">
           Chat →
         </span>
       </div>
     </div>
   )
-  const handleDelete = async (e, doc) => {
-  e.stopPropagation()
-  if (!confirm(`Delete "${doc.filename}"? This cannot be undone.`)) return
-
-  await deleteDocument(doc.id)
-  removeDocument(doc.id)
-  }
-
-  const handleDeleteSession = async (e, sessionId) => {
-  e.stopPropagation()
-  if (!confirm('Delete this chat history? This cannot be undone.')) return
-
-  await deleteSession(sessionId)
-  setSessions(prev => prev.filter(s => s.id !== sessionId))
-  }
 
   return (
     <Layout>
@@ -216,7 +218,7 @@ export default function HomePage() {
                         id: session.document_id,
                         filename: session.documents?.filename
                       })
-                      setActiveSessionId(session.id)  
+                      setActiveSessionId(session.id)
                       navigate('/chat')
                     }}
                     className="flex items-center justify-between p-4 border border-white/7 rounded-lg cursor-pointer hover:border-accent/30 hover:bg-surface2 transition-all group"
@@ -229,7 +231,7 @@ export default function HomePage() {
                         {new Date(session.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                     <button
+                    <button
                       onClick={(e) => handleDeleteSession(e, session.id)}
                       className="text-muted hover:text-coral transition-colors text-sm opacity-0 group-hover:opacity-100"
                     >
