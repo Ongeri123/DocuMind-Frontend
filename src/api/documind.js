@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 
-const BASE_URL = 'https://web-production-47155.up.railway.app'
+const BASE_URL = 'https://web-production-47155.up.railway.app/api'
 
 const getHeaders = async () => {
   const { data: { session } } = await supabase.auth.getSession()
