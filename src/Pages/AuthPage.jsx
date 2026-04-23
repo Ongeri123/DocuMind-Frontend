@@ -38,7 +38,7 @@ export default function AuthPage() {
     setLoading(true)
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'http://localhost:5173/reset-password'
+        redirectTo: 'https://docu-mind-frontend-mu.vercel.app/reset-password' // replace with your actual URL
       })
       if (error) throw error
       setResetSent(true)
