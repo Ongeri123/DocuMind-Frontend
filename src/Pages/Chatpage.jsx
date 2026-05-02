@@ -77,7 +77,7 @@ useEffect(() => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-bg">
+    <div className="flex flex-col bg-bg" style={{ height: '100dvh' }}>
 
       <div className="p-4 border-b border-white/7 flex items-center gap-4">
         <button
@@ -91,10 +91,10 @@ useEffect(() => {
         </h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xl p-3 rounded-lg text-sm font-body ${
+            <div className={`max-w-[80vw] md:max-w-xl p-3 rounded-lg text-sm font-body ${
               msg.role === 'user'
                 ? 'bg-blue-400 text-bg'
                 : 'bg-surface text-text-main border border-white/7'
@@ -107,7 +107,7 @@ useEffect(() => {
         {/* live streaming display */}
         {isStreaming && (
           <div className="flex justify-start">
-            <div className="max-w-xl p-3 rounded-lg text-sm font-body bg-surface text-text-main border border-white/7">
+            <div className="max-w-[80vw] md:max-w-xl p-3 rounded-lg text-sm font-body bg-surface text-text-main border border-white/7">
               {answer}
               <span className="cursor-blink">▋</span>
             </div>
@@ -115,7 +115,7 @@ useEffect(() => {
         )}
       </div>
 
-      <div className="p-4 border-t border-white/7 flex gap-2">
+      <div className="p-3 md:p-4 border-t border-white/7 flex gap-2">
         <input
           type="text"
           value={question}
