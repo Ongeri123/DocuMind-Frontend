@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSSE } from '../hooks/useSSE'
 import useDocuMind from '../store/useDocumind'
@@ -13,6 +13,12 @@ export default function ChatPage() {
   const activeDocument = useDocuMind(s => s.activeDocument)
   const activeSessionId = useDocuMind(s => s.activeSessionId)
   const { setActiveSessionId } = useDocuMind()
+
+  const messagesEndRef = useRef(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, answer])
 
 useEffect(() => {
   if (!activeDocument) return
@@ -113,6 +119,7 @@ useEffect(() => {
             </div>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="p-3 md:p-4 border-t border-white/7 flex gap-2">
