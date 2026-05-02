@@ -27,6 +27,8 @@ export default function HomePage() {
   const [uploading, setUploading] = useState(false)
   const [status, setStatus] = useState('')
   const [sessions, setSessions] = useState([])
+  const [openMenuId, setOpenMenuId] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null) // { type: 'doc'|'session', id, name }
 
   useEffect(() => {
     const load = async () => {
@@ -82,51 +84,99 @@ export default function HomePage() {
     await toggleStar(doc.id, !doc.starred)
   }
 
-  const handleDelete = async (e, doc) => {
-    e.stopPropagation()
-    if (!confirm(`Delete "${doc.filename}"? This cannot be undone.`)) return
-    await deleteDocument(doc.id)
-    removeDocument(doc.id)
+  const handleDelete = async () => {
+    if (!confirmDelete) return
+    if (confirmDelete.type === 'doc') {
+      await deleteDocument(confirmDelete.id)
+      removeDocument(confirmDelete.id)
+    } else {
+      await deleteSession(confirmDelete.id)
+      setSessions(prev => prev.filter(s => s.id !== confirmDelete.id))
+    }
+    setConfirmDelete(null)
   }
 
-  const handleDeleteSession = async (e, sessionId) => {
-    e.stopPropagation()
-    if (!confirm('Delete this chat history? This cannot be undone.')) return
-    await deleteSession(sessionId)
-    setSessions(prev => prev.filter(s => s.id !== sessionId))
-  }
+  const ConfirmModal = () => confirmDelete ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-surface border border-black/10 rounded-xl p-6 w-full max-w-sm shadow-xl">
+        <h3 className="font-display font-semibold text-text-main mb-2">Are you sure?</h3>
+        <p className="text-muted font-mono text-sm mb-6">
+          Delete <span className="text-text-main">&quot;{confirmDelete.name}&quot;</span>? This cannot be undone.
+        </p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={() => setConfirmDelete(null)}
+            className="px-4 py-2 rounded-lg text-sm font-mono text-muted hover:text-text-main border border-black/10 hover:bg-surface2 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            className="px-4 py-2 rounded-lg text-sm font-mono bg-coral text-white hover:opacity-85 transition-opacity"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
 
   const DocumentCard = ({ doc }) => (
     <div
       onClick={() => openDocument(doc)}
-      className="flex items-center justify-between p-4 border border-white/7 rounded-lg cursor-pointer hover:border-accent/30 hover:bg-surface2 transition-all group"
+      className="flex items-center justify-between p-4 border border-white/7 rounded-lg cursor-pointer hover:border-accent/30 hover:bg-surface2 transition-all"
     >
       <div className="flex items-center gap-3">
         <span className="text-muted font-mono text-xs">PDF</span>
         <span className="text-sm font-body text-text-main">{doc.filename}</span>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
         <button
-          onClick={(e) => handleStar(e, doc)}
+          onClick={(e) => { e.stopPropagation(); handleStar(e, doc) }}
           className={`text-sm transition-colors ${doc.starred ? 'text-amber' : 'text-muted hover:text-amber'}`}
         >
           {doc.starred ? '⭐' : '☆'}
         </button>
-        <button
-          onClick={(e) => handleDelete(e, doc)}
-          className="text-muted hover:text-coral transition-colors text-sm group-hover:opacity-100"
-        >
-          🗑
-        </button>
-        <span className="text-xs text-accent font-mono opacity-0 group-hover:opacity-100 transition-opacity">
-          Chat →
-        </span>
+
+        {/* three dots menu */}
+        <div className="relative" onMouseLeave={() => setOpenMenuId(null)}>
+          <button
+            onClick={() => setOpenMenuId(openMenuId === doc.id ? null : doc.id)}
+            className="text-muted hover:text-text-main px-1 font-bold text-lg leading-none"
+          >
+            ···
+          </button>
+          {openMenuId === doc.id && (
+            <div className="absolute right-0 top-7 bg-surface border border-black/10 rounded-lg shadow-lg z-10 w-36 py-1">
+              <button
+                onClick={() => { openDocument(doc); setOpenMenuId(null) }}
+                className="w-full text-left px-4 py-2 text-sm font-mono text-text-main hover:bg-surface2 transition-colors"
+              >
+                Chat
+              </button>
+              <button
+                onClick={() => { handleStar(null, doc); setOpenMenuId(null) }}
+                className="w-full text-left px-4 py-2 text-sm font-mono text-text-main hover:bg-surface2 transition-colors"
+              >
+                {doc.starred ? 'Unstar' : 'Star'}
+              </button>
+              <div className="border-t border-black/5 my-1" />
+              <button
+                onClick={() => { setConfirmDelete({ type: 'doc', id: doc.id, name: doc.filename }); setOpenMenuId(null) }}
+                className="w-full text-left px-4 py-2 text-sm font-mono text-coral hover:bg-surface2 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
 
   return (
     <Layout>
+      <ConfirmModal />
       <div className="p-8 max-w-3xl mx-auto ">
 
         {/* DOCUMENTS */}
@@ -221,7 +271,7 @@ export default function HomePage() {
                       setActiveSessionId(session.id)
                       navigate('/chat')
                     }}
-                    className="flex items-center justify-between p-4 border border-white/7 rounded-lg cursor-pointer hover:border-accent/30 hover:bg-surface2 transition-all group"
+                    className="flex items-center justify-between p-4 border border-white/7 rounded-lg cursor-pointer hover:border-accent/30 hover:bg-surface2 transition-all"
                   >
                     <div>
                       <p className="text-sm font-body text-text-main">
@@ -231,15 +281,39 @@ export default function HomePage() {
                         {new Date(session.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <button
-                      onClick={(e) => handleDeleteSession(e, session.id)}
-                      className="text-muted hover:text-coral transition-colors text-sm opacity-0 group-hover:opacity-100"
-                    >
-                      🗑
-                    </button>
-                    <span className="text-xs text-accent font-mono opacity-0 group-hover:opacity-100 transition-opacity">
-                      Resume →
-                    </span>
+                    <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+                      {/* three dots menu */}
+                      <div className="relative" onMouseLeave={() => setOpenMenuId(null)}>
+                        <button
+                          onClick={() => setOpenMenuId(openMenuId === session.id ? null : session.id)}
+                          className="text-muted hover:text-text-main px-1 font-bold text-lg leading-none"
+                        >
+                          ···
+                        </button>
+                        {openMenuId === session.id && (
+                          <div className="absolute right-0 top-7 bg-surface border border-black/10 rounded-lg shadow-lg z-10 w-36 py-1">
+                            <button
+                              onClick={() => {
+                                setActiveDocument({ id: session.document_id, filename: session.documents?.filename })
+                                setActiveSessionId(session.id)
+                                navigate('/chat')
+                                setOpenMenuId(null)
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm font-mono text-text-main hover:bg-surface2 transition-colors"
+                            >
+                              Resume
+                            </button>
+                            <div className="border-t border-black/5 my-1" />
+                            <button
+                              onClick={() => { setConfirmDelete({ type: 'session', id: session.id, name: session.documents?.filename || 'this chat' }); setOpenMenuId(null) }}
+                              className="w-full text-left px-4 py-2 text-sm font-mono text-coral hover:bg-surface2 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))
               )}

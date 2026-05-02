@@ -98,7 +98,7 @@ export default function AuthPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-accent text-white py-2.5 rounded-lg text-sm font-mono font-medium hover:opacity-85 transition-opacity disabled:opacity-50"
+                    className="w-full bg-sidebar text-white py-2.5 rounded-lg text-sm font-mono font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
                   >
                     {loading ? 'Sending...' : 'Send Reset Link'}
                   </button>
@@ -159,7 +159,7 @@ export default function AuthPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-accent text-white py-2.5 rounded-lg text-sm font-mono font-medium hover:opacity-85 transition-opacity disabled:opacity-50"
+                  className="w-full bg-sidebar text-white py-2.5 rounded-lg text-sm font-mono font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
                 >
                   {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
                 </button>
