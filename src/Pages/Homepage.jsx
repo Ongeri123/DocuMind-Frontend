@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import useDocuMind from '../store/useDocumind'
+import useAuth from '../store/useAuth'
 import {
   uploadDocument,
   getDocuments,
@@ -11,8 +12,99 @@ import {
   deleteSession
 } from '../api/documind'
 
+function ConfirmModal({ confirmDelete, onCancel, onConfirm }) {
+  if (!confirmDelete) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-surface border border-white/10 rounded-xl p-6 w-full max-w-sm">
+        <h3 className="font-display font-semibold text-text-main mb-2">Are you sure?</h3>
+        <p className="text-text-sub text-sm mb-6 break-words">
+          Delete <span className="text-text-main">&quot;{confirmDelete.name}&quot;</span>? This cannot be undone.
+        </p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg text-sm text-muted hover:text-text-main border border-white/10 hover:bg-white/5 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-lg text-sm bg-coral/90 text-white hover:bg-coral transition-colors"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DocumentCard({ doc, onOpen, onStar, onDelete, openMenuId, setOpenMenuId }) {
+  return (
+    <div
+      onClick={() => onOpen(doc)}
+      className="flex items-center justify-between px-4 py-3 border border-white/[0.07] rounded-lg cursor-pointer hover:bg-surface2 hover:border-white/[0.12] transition-colors"
+    >
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <span className="text-[10px] font-semibold text-muted bg-surface2 border border-white/[0.07] px-1.5 py-0.5 rounded flex-shrink-0">
+          PDF
+        </span>
+        <span className="text-sm text-text-main truncate">{doc.filename}</span>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0 ml-3" onClick={e => e.stopPropagation()}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onStar(e, doc) }}
+          className={`text-sm transition-colors flex-shrink-0 ${doc.starred ? 'text-amber' : 'text-muted hover:text-amber'}`}
+        >
+          {doc.starred ? '★' : '☆'}
+        </button>
+        <div className="relative" onMouseLeave={() => setOpenMenuId(null)}>
+          <button
+            onClick={() => setOpenMenuId(openMenuId === doc.id ? null : doc.id)}
+            className="text-muted hover:text-text-main w-7 h-7 flex items-center justify-center rounded hover:bg-white/5 transition-colors text-base leading-none"
+          >
+            ···
+          </button>
+          {openMenuId === doc.id && (
+            <div className="absolute right-0 top-8 bg-surface border border-white/[0.1] rounded-lg shadow-xl z-10 w-32 py-1 overflow-hidden">
+              <button
+                onClick={() => { onOpen(doc); setOpenMenuId(null) }}
+                className="w-full text-left px-3 py-2 text-sm text-text-sub hover:text-text-main hover:bg-white/[0.04] transition-colors"
+              >
+                Chat
+              </button>
+              <button
+                onClick={() => { onStar(null, doc); setOpenMenuId(null) }}
+                className="w-full text-left px-3 py-2 text-sm text-text-sub hover:text-text-main hover:bg-white/[0.04] transition-colors"
+              >
+                {doc.starred ? 'Unstar' : 'Star'}
+              </button>
+              <div className="border-t border-white/[0.06] my-1" />
+              <button
+                onClick={() => { onDelete(doc); setOpenMenuId(null) }}
+                className="w-full text-left px-3 py-2 text-sm text-coral hover:bg-white/[0.04] transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const sectionHeading = (title, sub) => (
+  <div className="mb-5">
+    <h1 className="font-display font-semibold text-xl text-text-main mb-0.5">{title}</h1>
+    <p className="text-text-sub text-sm">{sub}</p>
+  </div>
+)
+
 export default function HomePage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const {
     documents,
     activePage,
@@ -28,63 +120,51 @@ export default function HomePage() {
   const [status, setStatus] = useState('')
   const [sessions, setSessions] = useState([])
   const [openMenuId, setOpenMenuId] = useState(null)
-  const [confirmDelete, setConfirmDelete] = useState(null) // { type: 'doc'|'session', id, name }
+  const [confirmDelete, setConfirmDelete] = useState(null)
 
   useEffect(() => {
     const load = async () => {
       const result = await getDocuments()
       if (result.documents) setDocuments(result.documents)
-
       const s = await getSessions()
       if (s.sessions) setSessions(s.sessions)
     }
     load()
-  }, [setDocuments, setSessions])
+  }, [setDocuments])
 
-  const handleUpload = async (e) => {
+  const handleUpload = useCallback(async (e) => {
     const file = e.target.files[0]
     if (!file) return
-
-    if (file.size > 25 * 1024 * 1024) {
-      setStatus('File too large. Maximum 25MB.')
-      return
-    }
-
+    if (file.size > 25 * 1024 * 1024) { setStatus('File too large. Maximum 25MB.'); return }
     setUploading(true)
     setStatus('Uploading...')
-
     try {
       const result = await uploadDocument(file)
-      addDocument({
-        id: result.document_id,
-        filename: file.name,
-        starred: false
-      })
+      addDocument({ id: result.document_id, filename: file.name, starred: false })
       if (result.pii_detected && Object.keys(result.pii_detected).length > 0) {
-        const types = Object.keys(result.pii_detected).join(', ')
-        setStatus(`Ready ✓ — PII detected and will be masked: ${types}`)
+        setStatus(`Ready ✓ — PII masked: ${Object.keys(result.pii_detected).join(', ')}`)
       } else {
         setStatus('Ready ✓')
       }
-      setUploading(false)
     } catch (error) {
       setStatus(error.message || 'Upload failed')
+    } finally {
       setUploading(false)
     }
-  }
+  }, [addDocument])
 
-  const openDocument = (doc) => {
+  const openDocument = useCallback((doc) => {
     setActiveDocument(doc)
     navigate('/chat')
-  }
+  }, [setActiveDocument, navigate])
 
-  const handleStar = async (e, doc) => {
-    e.stopPropagation()
+  const handleStar = useCallback(async (e, doc) => {
+    if (e) e.stopPropagation()
     toggleStarred(doc.id)
     await toggleStar(doc.id, !doc.starred)
-  }
+  }, [toggleStarred])
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!confirmDelete) return
     if (confirmDelete.type === 'doc') {
       await deleteDocument(confirmDelete.id)
@@ -94,125 +174,52 @@ export default function HomePage() {
       setSessions(prev => prev.filter(s => s.id !== confirmDelete.id))
     }
     setConfirmDelete(null)
-  }
+  }, [confirmDelete, removeDocument])
 
-  const ConfirmModal = () => confirmDelete ? (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-surface border border-black/10 rounded-xl p-6 w-full max-w-sm shadow-xl">
-        <h3 className="font-display font-semibold text-text-main mb-2">Are you sure?</h3>
-        <p className="text-muted font-mono text-sm mb-6">
-          Delete <span className="text-text-main">&quot;{confirmDelete.name}&quot;</span>? This cannot be undone.
-        </p>
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={() => setConfirmDelete(null)}
-            className="px-4 py-2 rounded-lg text-sm font-mono text-muted hover:text-text-main border border-black/10 hover:bg-surface2 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleDelete}
-            className="px-4 py-2 rounded-lg text-sm font-mono bg-coral text-white hover:opacity-85 transition-opacity"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null
-
-  const DocumentCard = ({ doc }) => (
-    <div
-      onClick={() => openDocument(doc)}
-      className="flex items-center justify-between p-4 border border-white/7 rounded-lg cursor-pointer hover:border-accent/30 hover:bg-surface2 transition-all"
-    >
-      <div className="flex items-center gap-3">
-        <span className="text-muted font-mono text-xs">PDF</span>
-        <span className="text-sm font-body text-text-main">{doc.filename}</span>
-      </div>
-      <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
-        <button
-          onClick={(e) => { e.stopPropagation(); handleStar(e, doc) }}
-          className={`text-sm transition-colors ${doc.starred ? 'text-amber' : 'text-muted hover:text-amber'}`}
-        >
-          {doc.starred ? '⭐' : '☆'}
-        </button>
-
-        {/* three dots menu */}
-        <div className="relative" onMouseLeave={() => setOpenMenuId(null)}>
-          <button
-            onClick={() => setOpenMenuId(openMenuId === doc.id ? null : doc.id)}
-            className="text-muted hover:text-text-main px-1 font-bold text-lg leading-none"
-          >
-            ···
-          </button>
-          {openMenuId === doc.id && (
-            <div className="absolute right-0 top-7 bg-surface border border-black/10 rounded-lg shadow-lg z-10 w-36 py-1">
-              <button
-                onClick={() => { openDocument(doc); setOpenMenuId(null) }}
-                className="w-full text-left px-4 py-2 text-sm font-mono text-text-main hover:bg-surface2 transition-colors"
-              >
-                Chat
-              </button>
-              <button
-                onClick={() => { handleStar(null, doc); setOpenMenuId(null) }}
-                className="w-full text-left px-4 py-2 text-sm font-mono text-text-main hover:bg-surface2 transition-colors"
-              >
-                {doc.starred ? 'Unstar' : 'Star'}
-              </button>
-              <div className="border-t border-black/5 my-1" />
-              <button
-                onClick={() => { setConfirmDelete({ type: 'doc', id: doc.id, name: doc.filename }); setOpenMenuId(null) }}
-                className="w-full text-left px-4 py-2 text-sm font-mono text-coral hover:bg-surface2 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+  const handleDeleteDoc = useCallback((doc) => {
+    setConfirmDelete({ type: 'doc', id: doc.id, name: doc.filename })
+  }, [])
 
   return (
     <Layout>
-      <ConfirmModal />
-      <div className="p-8 max-w-3xl mx-auto ">
+      <ConfirmModal
+        confirmDelete={confirmDelete}
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={handleDelete}
+      />
+
+      <div className="px-4 sm:px-6 py-6 max-w-2xl mx-auto w-full">
 
         {/* DOCUMENTS */}
         {activePage === 'documents' && (
           <div>
-            <div className="mb-6">
-              <h1 className="font-display font-bold text-2xl text-text-main mb-1">
-                Documents
-              </h1>
-              <p className="text-muted font-body text-sm italic">
-                Upload a PDF to start chatting with it
-              </p>
-            </div>
+            {sectionHeading('Documents', 'Upload a PDF to start chatting with it')}
 
-            <label className="block border-2 border-dashed border-white/7 rounded-xl p-10 text-center cursor-pointer hover:border-accent/40 transition-colors mb-6">
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={handleUpload}
-                className="hidden"
-              />
-              <p className="text-muted font-mono text-sm">
-                {uploading ? status : '+ Drop a PDF here or click to upload'}
+            <label className="block border border-dashed border-white/[0.1] rounded-lg p-6 sm:p-8 text-center cursor-pointer hover:border-white/20 hover:bg-white/[0.02] transition-colors mb-5 group">
+              <input type="file" accept=".pdf" onChange={handleUpload} className="hidden" />
+              <p className="text-text-sub text-sm group-hover:text-text-main transition-colors">
+                {uploading ? status : '+ Drop a PDF or click to upload'}
               </p>
               {status && !uploading && (
-                <p className="text-accent font-mono text-xs mt-2">{status}</p>
+                <p className="text-emerald text-xs mt-2 break-words">{status}</p>
               )}
             </label>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {documents.length === 0 ? (
-                <p className="text-muted font-mono text-sm text-center py-8">
-                  No documents yet
-                </p>
+                <p className="text-muted text-sm text-center py-8">No documents yet</p>
               ) : (
-                documents.map(doc => <DocumentCard key={doc.id} doc={doc} />)
+                documents.map(doc => (
+                  <DocumentCard
+                    key={doc.id}
+                    doc={doc}
+                    onOpen={openDocument}
+                    onStar={handleStar}
+                    onDelete={handleDeleteDoc}
+                    openMenuId={openMenuId}
+                    setOpenMenuId={setOpenMenuId}
+                  />
+                ))
               )}
             </div>
           </div>
@@ -221,77 +228,61 @@ export default function HomePage() {
         {/* STARRED */}
         {activePage === 'starred' && (
           <div>
-            <div className="mb-6">
-              <h1 className="font-display font-bold text-2xl text-text-main mb-1">
-                Starred
-              </h1>
-              <p className="text-muted font-body text-sm italic">
-                Your bookmarked documents
-              </p>
-            </div>
-            <div className="space-y-2">
+            {sectionHeading('Starred', 'Your bookmarked documents')}
+            <div className="space-y-1.5">
               {documents.filter(d => d.starred).length === 0 ? (
-                <p className="text-muted font-mono text-sm text-center py-8">
-                  No starred documents — click ☆ on any document to star it
-                </p>
+                <p className="text-muted text-sm text-center py-8">No starred documents yet</p>
               ) : (
-                documents
-                  .filter(d => d.starred)
-                  .map(doc => <DocumentCard key={doc.id} doc={doc} />)
+                documents.filter(d => d.starred).map(doc => (
+                  <DocumentCard
+                    key={doc.id}
+                    doc={doc}
+                    onOpen={openDocument}
+                    onStar={handleStar}
+                    onDelete={handleDeleteDoc}
+                    openMenuId={openMenuId}
+                    setOpenMenuId={setOpenMenuId}
+                  />
+                ))
               )}
             </div>
           </div>
         )}
 
-        {/* CHAT HISTORY */}
+        {/* HISTORY */}
         {activePage === 'history' && (
           <div>
-            <div className="mb-6">
-              <h1 className="font-display font-bold text-2xl text-text-main mb-1">
-                Chat History
-              </h1>
-              <p className="text-muted font-body text-sm italic">
-                All your past conversations
-              </p>
-            </div>
-            <div className="space-y-2">
+            {sectionHeading('Chat History', 'All your past conversations')}
+            <div className="space-y-1.5">
               {sessions.length === 0 ? (
-                <p className="text-muted font-mono text-sm text-center py-8">
-                  No chat sessions yet
-                </p>
+                <p className="text-muted text-sm text-center py-8">No chat sessions yet</p>
               ) : (
                 sessions.map(session => (
                   <div
                     key={session.id}
                     onClick={() => {
-                      setActiveDocument({
-                        id: session.document_id,
-                        filename: session.documents?.filename
-                      })
+                      setActiveDocument({ id: session.document_id, filename: session.documents?.filename })
                       setActiveSessionId(session.id)
                       navigate('/chat')
                     }}
-                    className="flex items-center justify-between p-4 border border-white/7 rounded-lg cursor-pointer hover:border-accent/30 hover:bg-surface2 transition-all"
+                    className="flex items-center justify-between px-4 py-3 border border-white/[0.07] rounded-lg cursor-pointer hover:bg-surface2 hover:border-white/[0.12] transition-colors"
                   >
-                    <div>
-                      <p className="text-sm font-body text-text-main">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-text-main truncate">
                         {session.documents?.filename || 'Unknown document'}
                       </p>
-                      <p className="text-xs font-mono text-muted mt-0.5">
+                      <p className="text-xs text-muted mt-0.5">
                         {new Date(session.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
-                      {/* three dots menu */}
+                    <div className="flex items-center flex-shrink-0 ml-3" onClick={e => e.stopPropagation()}>
                       <div className="relative" onMouseLeave={() => setOpenMenuId(null)}>
                         <button
                           onClick={() => setOpenMenuId(openMenuId === session.id ? null : session.id)}
-                          className="text-muted hover:text-text-main px-1 font-bold text-lg leading-none"
-                        >
-                          ···
-                        </button>
+                          className="text-muted hover:text-text-main w-7 h-7 flex items-center justify-center rounded hover:bg-white/5 transition-colors text-base leading-none"
+                        >···</button>
                         {openMenuId === session.id && (
-                          <div className="absolute right-0 top-7 bg-surface border border-black/10 rounded-lg shadow-lg z-10 w-36 py-1">
+                          <div className="absolute right-0 top-8 bg-surface border border-white/[0.1] rounded-lg shadow-xl z-10 w-32 py-1 overflow-hidden">
                             <button
                               onClick={() => {
                                 setActiveDocument({ id: session.document_id, filename: session.documents?.filename })
@@ -299,17 +290,16 @@ export default function HomePage() {
                                 navigate('/chat')
                                 setOpenMenuId(null)
                               }}
-                              className="w-full text-left px-4 py-2 text-sm font-mono text-text-main hover:bg-surface2 transition-colors"
-                            >
-                              Resume
-                            </button>
-                            <div className="border-t border-black/5 my-1" />
+                              className="w-full text-left px-3 py-2 text-sm text-text-sub hover:text-text-main hover:bg-white/[0.04] transition-colors"
+                            >Resume</button>
+                            <div className="border-t border-white/[0.06] my-1" />
                             <button
-                              onClick={() => { setConfirmDelete({ type: 'session', id: session.id, name: session.documents?.filename || 'this chat' }); setOpenMenuId(null) }}
-                              className="w-full text-left px-4 py-2 text-sm font-mono text-coral hover:bg-surface2 transition-colors"
-                            >
-                              Delete
-                            </button>
+                              onClick={() => {
+                                setConfirmDelete({ type: 'session', id: session.id, name: session.documents?.filename || 'this chat' })
+                                setOpenMenuId(null)
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-coral hover:bg-white/[0.04] transition-colors"
+                            >Delete</button>
                           </div>
                         )}
                       </div>
@@ -324,51 +314,35 @@ export default function HomePage() {
         {/* SETTINGS */}
         {activePage === 'settings' && (
           <div>
-            <div className="mb-6">
-              <h1 className="font-display font-bold text-2xl text-text-main mb-1">
-                Settings
-              </h1>
-              <p className="text-muted font-body text-sm italic">
-                Manage your account preferences
-              </p>
-            </div>
-            <div className="space-y-4">
-              <div className="bg-surface border border-white/7 rounded-lg p-5">
-                <h2 className="font-mono text-xs text-muted uppercase tracking-widest mb-4">
-                  Account
-                </h2>
+            {sectionHeading('Settings', 'Manage your account preferences')}
+            <div className="space-y-3">
+              <div className="bg-surface border border-white/[0.07] rounded-lg p-5">
+                <h2 className="text-xs text-muted uppercase tracking-widest mb-4">Account</h2>
                 <div className="space-y-3">
                   <div>
-                    <label className="font-mono text-xs text-muted block mb-1">
-                      Email
-                    </label>
+                    <label className="text-xs text-text-sub block mb-1.5">Email</label>
                     <input
                       type="email"
                       placeholder="your@email.com"
-                      className="w-full bg-surface2 border border-white/7 rounded-lg px-4 py-2 text-sm font-mono text-text-main outline-none focus:border-accent transition-colors"
+                      className="w-full bg-surface2 border border-white/[0.08] rounded-lg px-3.5 py-2.5 text-sm text-text-main outline-none focus:border-white/20 transition-colors placeholder:text-muted"
                     />
                   </div>
                   <div>
-                    <label className="font-mono text-xs text-muted block mb-1">
-                      New Password
-                    </label>
+                    <label className="text-xs text-text-sub block mb-1.5">New Password</label>
                     <input
                       type="password"
                       placeholder="••••••••"
-                      className="w-full bg-surface2 border border-white/7 rounded-lg px-4 py-2 text-sm font-mono text-text-main outline-none focus:border-accent transition-colors"
+                      className="w-full bg-surface2 border border-white/[0.08] rounded-lg px-3.5 py-2.5 text-sm text-text-main outline-none focus:border-white/20 transition-colors placeholder:text-muted"
                     />
                   </div>
-                  <button className="bg-accent text-bg px-4 py-2 rounded-lg text-sm font-mono hover:opacity-85 transition-opacity">
+                  <button className="bg-text-main text-bg px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/90 transition-colors">
                     Save Changes
                   </button>
                 </div>
               </div>
-
-              <div className="bg-surface border border-white/7 rounded-lg p-5">
-                <h2 className="font-mono text-xs text-muted uppercase tracking-widest mb-4">
-                  Danger Zone
-                </h2>
-                <button className="bg-coral/10 text-coral border border-coral/20 px-4 py-2 rounded-lg text-sm font-mono hover:bg-coral/20 transition-colors">
+              <div className="bg-surface border border-white/[0.07] rounded-lg p-5">
+                <h2 className="text-xs text-muted uppercase tracking-widest mb-4">Danger Zone</h2>
+                <button className="text-coral border border-coral/20 bg-coral/5 px-4 py-2 rounded-lg text-sm hover:bg-coral/10 transition-colors">
                   Delete Account
                 </button>
               </div>
@@ -379,50 +353,29 @@ export default function HomePage() {
         {/* PROFILE */}
         {activePage === 'profile' && (
           <div>
-            <div className="mb-6">
-              <h1 className="font-display font-bold text-2xl text-text-main mb-1">
-                Profile
-              </h1>
-              <p className="text-muted font-body text-sm italic">
-                Your account information
-              </p>
-            </div>
-
-            <div className="bg-surface border border-white/7 rounded-lg p-6">
-              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-white/7">
-                <div className="w-14 h-14 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
-                  <span className="font-display font-bold text-accent text-xl">U</span>
+            {sectionHeading('Profile', 'Your account information')}
+            <div className="bg-surface border border-white/[0.07] rounded-lg p-5">
+              <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.07] min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-surface2 border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+                  <span className="font-semibold text-text-sub text-sm">{user?.email?.[0]?.toUpperCase()}</span>
                 </div>
-                <div>
-                  <p className="font-display font-semibold text-text-main">Your Name</p>
-                  <p className="font-mono text-xs text-muted">your@email.com</p>
+                <div className="min-w-0">
+                  <p className="font-medium text-text-main text-sm truncate">{user?.email}</p>
+                  <p className="text-xs text-muted">Free plan</p>
                 </div>
               </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="font-display font-bold text-2xl text-accent">
-                    {documents.length}
-                  </p>
-                  <p className="font-mono text-xs text-muted uppercase tracking-wide">
-                    Documents
-                  </p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-surface2 rounded-lg p-4 text-center">
+                  <p className="font-display font-bold text-xl text-text-main">{documents.length}</p>
+                  <p className="text-xs text-muted uppercase tracking-wide mt-1">Docs</p>
                 </div>
-                <div className="text-center">
-                  <p className="font-display font-bold text-2xl text-accent">
-                    {documents.filter(d => d.starred).length}
-                  </p>
-                  <p className="font-mono text-xs text-muted uppercase tracking-wide">
-                    Starred
-                  </p>
+                <div className="bg-surface2 rounded-lg p-4 text-center">
+                  <p className="font-display font-bold text-xl text-amber">{documents.filter(d => d.starred).length}</p>
+                  <p className="text-xs text-muted uppercase tracking-wide mt-1">Starred</p>
                 </div>
-                <div className="text-center">
-                  <p className="font-display font-bold text-2xl text-accent">
-                    {sessions.length}
-                  </p>
-                  <p className="font-mono text-xs text-muted uppercase tracking-wide">
-                    Chats
-                  </p>
+                <div className="bg-surface2 rounded-lg p-4 text-center">
+                  <p className="font-display font-bold text-xl text-text-main">{sessions.length}</p>
+                  <p className="text-xs text-muted uppercase tracking-wide mt-1">Chats</p>
                 </div>
               </div>
             </div>

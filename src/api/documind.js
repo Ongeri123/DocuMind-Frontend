@@ -1,13 +1,11 @@
 import { supabase } from '../lib/supabase'
 
-const BASE_URL = 'https://documind-backend-qgrk.onrender.com/api'
+const BASE_URL = 'https://documind-backend-qgrk.onrender.com'
 
 const getHeaders = async () => {
   const { data: { session } } = await supabase.auth.getSession()
-  console.log('Access token:', session?.access_token)
-  console.log('User ID:', session?.user?.id)
   return {
-     'Authorization': `Bearer ${session?.access_token}`,
+    'Authorization': `Bearer ${session?.access_token}`,
     'X-User-Id': session?.user?.id
   }
 }
@@ -26,7 +24,7 @@ export const uploadDocument = async (file) => {
   return response.json()
 }
 
-export const streamChat = (question, documentId, sessionId,  onToken, onDone) => {
+export const streamChat = (question, documentId, sessionId, onToken, onDone, onError) => {
   let fullAnswer = ''
   const called = { done: false }
 
@@ -51,6 +49,12 @@ export const streamChat = (question, documentId, sessionId,  onToken, onDone) =>
         session_id: sessionId
       })
     }).then(response => {
+      if (!response.ok) {
+        onError?.(`Server error: ${response.status}`)
+        callDone()
+        return
+      }
+
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
 
@@ -74,10 +78,19 @@ export const streamChat = (question, documentId, sessionId,  onToken, onDone) =>
           })
 
           read()
+        }).catch(err => {
+          onError?.(err.message)
+          callDone()
         })
       }
       read()
+    }).catch(err => {
+      onError?.(err.message)
+      callDone()
     })
+  }).catch(err => {
+    onError?.(err.message)
+    callDone()
   })
 }
 export const createSession = async (documentId) => {
@@ -137,6 +150,15 @@ export const deleteSession = async (sessionId) => {
   const response = await fetch(`${BASE_URL}/sessions/${sessionId}`, {
     method: 'DELETE',
     headers
+  })
+  return response.json()
+}
+export const exportDocument = async (documentId, exportType, sessionId) => {
+  const headers = await getHeaders()
+  const response = await fetch(`${BASE_URL}/documents/${documentId}/export`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: exportType, session_id: sessionId })
   })
   return response.json()
 }

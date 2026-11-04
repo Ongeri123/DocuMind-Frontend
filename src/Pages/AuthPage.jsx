@@ -50,31 +50,29 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-bg flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-sm">
 
         <div className="text-center mb-8">
-          <h1 className="font-display font-bold text-3xl text-accent mb-2">DocuMind</h1>
-          <p className="text-muted font-body text-sm italic">Chat with your documents</p>
+          <h1 className="font-display font-bold text-2xl tracking-tight mb-1">
+            <span className="text-text-main">Docu</span><span className="text-accent">Mind</span>
+          </h1>
+          <p className="text-text-sub text-sm">Chat with your documents using AI</p>
         </div>
 
-        <div className="bg-surface border border-black/8 rounded-xl p-8">
+        <div className="bg-surface border border-white/[0.08] rounded-xl p-7">
 
           {forgotPassword ? (
             <div>
-              <h2 className="font-display font-bold text-xl text-text-main mb-2">
-                Reset your password
-              </h2>
-              <p className="text-muted font-body text-sm italic mb-6">
-                Enter your email and we'll send you a reset link
-              </p>
+              <h2 className="font-display font-semibold text-lg text-text-main mb-1">Reset password</h2>
+              <p className="text-text-sub text-sm mb-5">We'll send a reset link to your email</p>
 
               {resetSent ? (
-                <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 text-center">
-                  <p className="text-accent font-mono text-sm">Reset email sent — check your inbox</p>
+                <div className="bg-emerald/10 border border-emerald/20 rounded-lg p-4 text-center">
+                  <p className="text-emerald text-sm">Reset email sent — check your inbox</p>
                   <button
                     onClick={() => { setForgotPassword(false); setResetSent(false) }}
-                    className="text-muted font-mono text-xs mt-3 hover:text-text-main transition-colors"
+                    className="text-muted text-xs mt-3 hover:text-text-main transition-colors"
                   >
                     Back to sign in
                   </button>
@@ -82,31 +80,26 @@ export default function AuthPage() {
               ) : (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div>
-                    <label className="font-mono text-xs text-muted block mb-1">Email</label>
+                    <label className="text-xs text-text-sub block mb-1.5">Email</label>
                     <input
                       type="email"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       placeholder="you@email.com"
                       required
-                      className="w-full bg-surface2 border border-black/8 rounded-lg px-4 py-2.5 text-sm font-mono text-text-main outline-none focus:border-accent transition-colors"
+                      className="w-full bg-surface2 border border-white/[0.08] rounded-lg px-3.5 py-2.5 text-sm text-text-main outline-none focus:border-white/20 transition-colors placeholder:text-muted"
                     />
                   </div>
-
-                  {error && <p className="text-coral font-mono text-xs">{error}</p>}
-
+                  {error && <p className="text-coral text-xs">{error}</p>}
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-sidebar text-white py-2.5 rounded-lg text-sm font-mono font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+                    className="w-full bg-text-main text-bg py-2.5 rounded-lg text-sm font-medium hover:bg-white/90 transition-colors disabled:opacity-40"
                   >
                     {loading ? 'Sending...' : 'Send Reset Link'}
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setForgotPassword(false)}
-                    className="w-full text-center font-mono text-xs text-muted hover:text-text-main transition-colors"
+                  <button type="button" onClick={() => setForgotPassword(false)}
+                    className="w-full text-center text-xs text-muted hover:text-text-main transition-colors"
                   >
                     Back to sign in
                   </button>
@@ -115,68 +108,77 @@ export default function AuthPage() {
             </div>
           ) : (
             <div>
-              <h2 className="font-display font-bold text-xl text-text-main mb-6">
+              <h2 className="font-display font-semibold text-lg text-text-main mb-5">
                 {isLogin ? 'Welcome back' : 'Create account'}
               </h2>
 
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={() => { setEmail('demo@documind.com'); setPassword('Demo1234!') }}
+                  className="w-full mb-4 px-3.5 py-2.5 rounded-lg border border-white/[0.08] bg-surface2 hover:bg-surface3 transition-colors text-left"
+                >
+                  <p className="text-xs text-muted mb-1">Try the demo account</p>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-xs text-text-sub font-mono">demo@documind.com</span>
+                    <span className="text-xs text-text-sub font-mono">Demo1234!</span>
+                  </div>
+                </button>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="font-mono text-xs text-muted block mb-1">Email</label>
+                  <label className="text-xs text-text-sub block mb-1.5">Email</label>
                   <input
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="you@email.com"
                     required
-                    className="w-full bg-surface2 border border-black/8 rounded-lg px-4 py-2.5 text-sm font-mono text-text-main outline-none focus:border-accent transition-colors"
+                    className="w-full bg-surface2 border border-white/[0.08] rounded-lg px-3.5 py-2.5 text-sm text-text-main outline-none focus:border-white/20 transition-colors placeholder:text-muted"
                   />
                 </div>
-
                 <div>
-                  <label className="font-mono text-xs text-muted block mb-1">Password</label>
+                  <label className="text-xs text-text-sub block mb-1.5">Password</label>
                   <input
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full bg-surface2 border border-black/8 rounded-lg px-4 py-2.5 text-sm font-mono text-text-main outline-none focus:border-accent transition-colors"
+                    className="w-full bg-surface2 border border-white/[0.08] rounded-lg px-3.5 py-2.5 text-sm text-text-main outline-none focus:border-white/20 transition-colors placeholder:text-muted"
                   />
                 </div>
 
                 {isLogin && (
-                  <button
-                    type="button"
-                    onClick={() => setForgotPassword(true)}
-                    className="text-accent font-mono text-xs hover:opacity-75 transition-opacity"
+                  <button type="button" onClick={() => setForgotPassword(true)}
+                    className="text-text-sub text-xs hover:text-text-main transition-colors"
                   >
                     Forgot password?
                   </button>
                 )}
 
-                {error && <p className="text-coral font-mono text-xs">{error}</p>}
+                {error && <p className="text-coral text-xs">{error}</p>}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-sidebar text-white py-2.5 rounded-lg text-sm font-mono font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+                  className="w-full bg-text-main text-bg py-2.5 rounded-lg text-sm font-semibold hover:bg-white/90 transition-colors disabled:opacity-40"
                 >
-                  {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
+                  {loading ? 'Please wait...' : isLogin ? 'Sign in' : 'Create account'}
                 </button>
               </form>
 
-              <p className="text-center font-mono text-xs text-muted mt-6">
-                {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
-                <button
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="text-accent hover:opacity-75 transition-opacity"
+              <p className="text-center text-xs text-muted mt-5">
+                {isLogin ? "No account?" : 'Have an account?'}{' '}
+                <button onClick={() => setIsLogin(!isLogin)}
+                  className="text-text-sub hover:text-text-main transition-colors"
                 >
                   {isLogin ? 'Sign up' : 'Sign in'}
                 </button>
               </p>
             </div>
           )}
-
         </div>
       </div>
     </div>

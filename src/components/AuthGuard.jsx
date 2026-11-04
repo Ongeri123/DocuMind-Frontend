@@ -28,7 +28,7 @@ export default function AuthGuard({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  if (!user) return null
+  if (!user) return <div className="min-h-screen bg-bg" />
 
   return children
 }
